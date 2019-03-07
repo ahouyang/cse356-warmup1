@@ -344,13 +344,13 @@ class Listen(Resource):
 			channel = connection.channel()
 			channel.exchange_declare('hw3', 'direct')
 			args = parse_args_list(['keys'])
-			channel.queue_declare('queue')
+			channel.queue_declare('queue', exclusive=True)
 			for key in args['keys']:
 				channel.queue_bind('queue', 'hw3', key)
 			while True:
-				resp = channel.basic_get('queue')
-				if resp != (None,None,None):
-					return {'msg':resp[2]}
+				meth, prop, body = channel.basic_get('queue')
+				if body is not None:
+					return {'msg':body}
 		except Exception as e:
 			print(e, sys.stderr)
 			return {'status':'ERROR'}
@@ -411,7 +411,7 @@ api.add_resource(ListGames, '/listgames')
 api.add_resource(GetGame, '/getgame')
 api.add_resource(GetScore, '/getscore')
 api.add_resource(Speak, '/speak')
-
+api.add_resource(Listen, '/listen')
 
 
 if __name__ == '__main__':
