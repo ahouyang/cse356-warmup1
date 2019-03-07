@@ -17,6 +17,40 @@ class Homepage(Resource):
 		headers = {'Content-Type': 'text/html'}
 		return make_response(render_template('signup.html'),200,headers)
 
+class Listen(Resource):
+	def post(self):
+		try:
+			connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+			channel = connection.channel()
+			channel.exchange_declare('hw3', 'direct')
+			args = parse_args_list(['keys'])
+			channel.queue_declare('queue', exclusive=True)
+			for key in args['keys']:
+				channel.queue_bind('queue', 'hw3', key)
+			while True:
+				meth, prop, body = channel.basic_get('queue')
+				if body is not None:
+					return {'msg':body}
+		except Exception as e:
+			print(e, sys.stderr)
+			return {'status':'ERROR'}
+
+
+class Speak(Resource):
+	def post(self):
+		try:
+			connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+			channel = connection.channel()
+			channel.exchange_declare('hw3', 'direct')
+			args = parse_args_list(['key', 'msg'])
+			# channel.queue_declare(args['key'])
+			# channel.queue_bind(args['key'], 'hw3')
+			channel.basic_publish('hw3',args['key'], args['msg'])
+			connection.close()
+			return {'status': 'OK'}
+		except Exception as e:
+			print(e, sys.stderr)
+			return {'status':'ERROR'}
 
 class NameDate(Resource):
 	def post(self):
@@ -337,40 +371,6 @@ class GetScore(Resource):
 			print(e, sys.stderr)
 			return {'status':'ERROR'}
 
-class Listen(Resource):
-	def post(self):
-		try:
-			connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
-			channel = connection.channel()
-			channel.exchange_declare('hw3', 'direct')
-			args = parse_args_list(['keys'])
-			channel.queue_declare('queue', exclusive=True)
-			for key in args['keys']:
-				channel.queue_bind('queue', 'hw3', key)
-			while True:
-				meth, prop, body = channel.basic_get('queue')
-				if body is not None:
-					return {'msg':body}
-		except Exception as e:
-			print(e, sys.stderr)
-			return {'status':'ERROR'}
-
-
-class Speak(Resource):
-	def post(self):
-		try:
-			connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
-			channel = connection.channel()
-			channel.exchange_declare('hw3', 'direct')
-			args = parse_args_list(['key', 'msg'])
-			# channel.queue_declare(args['key'])
-			# channel.queue_bind(args['key'], 'hw3')
-			channel.basic_publish('hw3',args['key'], args['msg'])
-			connection.close()
-			return {'status': 'OK'}
-		except Exception as e:
-			print(e, sys.stderr)
-			return {'status':'ERROR'}
 
 def send_email(receiver, message):
 	port = 465  # For SSL
