@@ -7,6 +7,8 @@ import tttalgorithm as ttt
 import smtplib, ssl
 import string
 import random
+import pika
+
 app = Flask(__name__)
 api = Api(app)
 
@@ -17,16 +19,6 @@ class Homepage(Resource):
 
 
 class NameDate(Resource):
-	# def post(self):
-	# 	headers = {'Content-Type': 'text/html'}
-	# 	name = request.form['name']
-	# 	# Format the date
-	# 	now = datetime.datetime.now()
-	# 	month =str(now.month) if len(str(now.month)) == 2 else '0' + str(now.month)
-	# 	day =str(now.day) if len(str(now.day)) == 2 else '0' + str(now.day)
-	# 	date = str(now.year) + '-' + month + '-' + day
-	# 	stuff = {'name': name, 'date': date}
-	# 	return make_response(render_template('index.html', stuff = stuff),200,headers)
 	def post(self):
 		headers = {'Content-Type': 'text/html'}
 		name = request.form['username']
@@ -41,43 +33,6 @@ class NameDate(Resource):
 	def get(self):
 		headers = {'Content-Type': 'text/html'}
 		return make_response(render_template('home.html'),200,headers)
-
-# class MakeMove(Resource):
-# 	def post(self):
-# 		# Check winner
-# 		# Choose move
-# 		# Check winner
-# 		# Return updated JSON
-# 		# Parse arguments from server
-# 		parser = reqparse.RequestParser()
-# 		parser.add_argument('grid', action='append')
-# 		parser.add_argument('model', action='append')
-# 		args = parser.parse_args()
-# 		grid = args['grid']
-# 		model = []
-# 		for i in grid:
-# 			if i == 'X':
-# 				model.append(1)
-# 			elif i == 'O':
-# 				model.append(-1)
-# 			else:
-# 				model.append(0)
-# 		resp = {}
-# 		resp['grid'] = grid
-# 		resp['winner'] = ''
-# 		#Check for winner
-# 		winner = ttt.checkWinner(model)
-# 		# If there is a winner, return response
-# 		if winner != '':
-# 			resp['winner'] = winner
-# 		# Otherwise, make a move
-# 		else:
-# 			move = ttt.makeMove(model)
-# 			grid[move] = 'O'
-# 			model[move] = -1
-# 			resp['winner'] = ttt.checkWinner(model)
-# 		# print('#######################model:' + str(model), file=sys.stderr)
-# 		return resp
 
 class MakeMove(Resource):
 	def post(self):
@@ -168,11 +123,6 @@ class MakeMove(Resource):
 		new_game['grid'] = [" "," "," "," "," "," "," "," "," "]
 		users.update_one({'username': username}, {'$set':{'current_game':new_game}})
 		users.update_one({'username': username}, {'$push': {'games': game}})
-	# def _next_id(self, username):
-	# 	users = get_users_coll()
-	# 	user = users.find_one({'username':username})
-	# 	current_game = user['current_game']
-	# 	return max(ids) + 1
 
 class AddUser(Resource):
 	def post(self):
@@ -310,12 +260,6 @@ class Logout(Resource):
 	def post(self):
 		# Update cookie to invalid one; no access to database bc cookie just serves to initialize the board upon login
 		try:
-			# username = request.cookies.get('username')
-			# password = request.cookies.get('password')
-			# grid = request.cookie.get('grid')
-			# grid = eval(grid)
-			# users = get_users_coll()
-			# users.update_one({'username':username, 'password':password}, {'grid':grid})
 			headers = {'Content-Type': 'application/json'}
 			response = make_response(jsonify({"status": "OK"}), 200, headers)
 			response.set_cookie('username', '', expires = 0)
@@ -393,6 +337,41 @@ class GetScore(Resource):
 			print(e, sys.stderr)
 			return {'status':'ERROR'}
 
+class Listen(Resource):
+	def post(self):
+		try:
+			connection = pika.BlockingConnection(pika.ConnectionParameters('localhost'))
+			channel = connection.channel()
+			channel.exchange_declare('hw3', 'direct')
+			args = parse_args_list(['keys'])
+			channel.queue_declare('queue')
+			for key in args['keys']:
+				channel.queue_bind('queue', 'hw3', key)
+			while True:
+				resp = channel.basic_get('queue')
+				if resp != (None,None,None):
+					return {'msg':resp[2]}
+		except Exception as e:
+			print(e, sys.stderr)
+			return {'status':'ERROR'}
+
+
+class Speak(Resource):
+	def post(self):
+		try:
+			connection = pika.BlockingConnection(pika.ConnectionParameters(host='localhost'))
+			channel = connection.channel()
+			channel.exchange_declare('hw3', 'direct')
+			args = parse_args_list(['key', 'msg'])
+			# channel.queue_declare(args['key'])
+			# channel.queue_bind(args['key'], 'hw3')
+			channel.basic_publish('hw3',args['key'], args['msg'])
+			connection.close()
+			return {'status': 'OK'}
+		except Exception as e:
+			print(e, sys.stderr)
+			return {'status':'ERROR'}
+
 def send_email(receiver, message):
 	port = 465  # For SSL
 	password = "W2v0&lkde"
@@ -431,6 +410,7 @@ api.add_resource(Logout, '/logout')
 api.add_resource(ListGames, '/listgames')
 api.add_resource(GetGame, '/getgame')
 api.add_resource(GetScore, '/getscore')
+api.add_resource(Speak, '/speak')
 
 
 
