@@ -24,14 +24,22 @@ class Listen(Resource):
 			channel = connection.channel()
 			channel.exchange_declare('hw3', 'direct')
 			args = parse_args_list(['keys'])
-			channel.queue_declare('queue', exclusive=True)
+			exc = channel.queue_declare(exclusive=True)
+			print('*****************args' + str(args), sys.stderr)
+			print('::::::::::::::::::: keys' + str(args['keys']), sys.stderr)
 			for key in args['keys']:
-				channel.queue_bind('queue', 'hw3', key)
+				print('---------------len' + str(len(args['keys'])), sys.stderr)
+				print('################################3key:'+key, sys.stderr)
+				channel.queue_bind(exchange='hw3', queue=exc.method.queue, routing_key=key)
 			while True:
-				meth, prop, body = channel.basic_get('queue')
+				meth, prop, body = channel.basic_get(queue=exc.method.queue)
 				if body is not None:
+					channel.close()
+					connection.close()
 					return {'msg':body}
 		except Exception as e:
+			#channel.close()
+			connection.close()
 			print(e, sys.stderr)
 			return {'status':'ERROR'}
 
@@ -45,10 +53,13 @@ class Speak(Resource):
 			args = parse_args_list(['key', 'msg'])
 			# channel.queue_declare(args['key'])
 			# channel.queue_bind(args['key'], 'hw3')
-			channel.basic_publish('hw3',args['key'], args['msg'])
+			channel.basic_publish(exchange='hw3',routing_key=args['key'], body=args['msg'])
+			channel.close()
 			connection.close()
 			return {'status': 'OK'}
 		except Exception as e:
+			#channel.close()
+			connection.close()
 			print(e, sys.stderr)
 			return {'status':'ERROR'}
 
