@@ -8,9 +8,37 @@ import smtplib, ssl
 import string
 import random
 import pika
+from cassandra.cluster import Cluster
+import werkzeug
 
 app = Flask(__name__)
 api = Api(app)
+
+class Deposit(Resource):
+	def post(self):
+		parser = reqparse.RequestParser()
+		parser.add_argument('filename')
+		parser.add_argument('contents', type=werkzeug.datastructures.FileStorage)
+		args = parser.parse_args()
+		cluster = Cluster(['130.245.171.50'])
+		session = cluster.connect(keyspace='hw5')
+		cqlinsert = 'INSERT INTO imgs (filename, contents) VALUES (\'' + args['filename'] +
+		 ', textAsBlob(\'' + str(args['contents']) + '\'));'
+		session.execute(cqlinsert)
+		return {'status': 'OK'}
+
+class Retrieve(Resource):
+	def get(self):
+		args = parse_args_list('filename')
+		cluster = Cluster(['130.245.171.50'])
+		session = cluster.connect(keyspace='hw5')
+		cqlselect = 'SELECT * FROM imgs WHERE filename = \'' + args['filename'] + '\';'
+		row = session.execute(cqlselect)[0]
+		file = row[1]
+		response = make_response(file)
+		response.headers.set('Content-Type', 'image/png')
+		response.headers.set('Content-Disposition', 'attachment', filename='%s.png' + args['filename'])
+		return response
 
 class Homepage(Resource):
 	def get(self):
@@ -425,6 +453,8 @@ api.add_resource(GetGame, '/getgame')
 api.add_resource(GetScore, '/getscore')
 api.add_resource(Speak, '/speak')
 api.add_resource(Listen, '/listen')
+api.add_resource(Desposit, '/deposit')
+api.add_resource(Retrieve, '/retrieve')
 
 
 if __name__ == '__main__':
