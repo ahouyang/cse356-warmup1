@@ -16,16 +16,20 @@ api = Api(app)
 
 class Deposit(Resource):
 	def post(self):
-		parser = reqparse.RequestParser()
-		parser.add_argument('filename')
-		parser.add_argument('contents', type=werkzeug.datastructures.FileStorage, location='files')
-		args = parser.parse_args()
+		# parser = reqparse.RequestParser()
+		# parser.add_argument('filename')
+		# parser.add_argument('contents', type=werkzeug.datastructures.FileStorage, location='files')
+		# args = parser.parse_args()
+		filename = request.form['filename']
+		file = request.files['content']
+		b = bytearray(file.read())
 		cluster = Cluster(['130.245.171.50'])
 		session = cluster.connect(keyspace='hw5')
-		filebin = str(args['contents'].read())
-		print('-----------------------------filebin\n' + filebin, sys.stderr)
-		cqlinsert = "INSERT INTO imgs (filename, contents) VALUES ('%s', textAsBlob('%s'));", % (args['filename'], filebin)
-		session.execute(cqlinsert)
+		# filebin = args['contents'].read()
+		print('-----------------------------filebin\n' + b, sys.stderr)
+		# print('-----------------------------filebintype\n' + str(type()), sys.stderr)
+		cqlinsert = "INSERT INTO imgs (filename, contents) VALUES ('%s', '%s');"
+		session.execute(cqlinsert, (filename, b))
 		return {'status': 'OK'}
 
 class Retrieve(Resource):
