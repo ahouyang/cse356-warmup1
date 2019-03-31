@@ -20,28 +20,30 @@ class Deposit(Resource):
 		# parser.add_argument('filename')
 		# parser.add_argument('contents', type=werkzeug.datastructures.FileStorage, location='files')
 		# args = parser.parse_args()
-		filename = request.form['filename']
-		file = request.files['content']
+		filename = request.form.get('filename')
+		file = request.files.get('contents')
 		b = bytearray(file.read())
 		cluster = Cluster(['130.245.171.50'])
 		session = cluster.connect(keyspace='hw5')
 		# filebin = args['contents'].read()
 		print('-----------------------------filebin\n' + b, sys.stderr)
 		# print('-----------------------------filebintype\n' + str(type()), sys.stderr)
-		cqlinsert = "INSERT INTO imgs (filename, contents) VALUES ('%s', '%s');"
+		cqlinsert = "INSERT INTO imgs (filename, contents) VALUES (%s, %s);"
 		session.execute(cqlinsert, (filename, b))
 		return {'status': 'OK'}
 
 class Retrieve(Resource):
 	def get(self):
-		args = parse_args_list('filename')
+		args = parse_args_list(['filename'])
 		cluster = Cluster(['130.245.171.50'])
 		session = cluster.connect(keyspace='hw5')
 		cqlselect = "SELECT * FROM imgs WHERE filename = '" + args['filename'] + "';"
 		row = session.execute(cqlselect)[0]
 		file = row[1]
+		filename = row[0]
+		ending = filename.split('.')[1]
 		response = make_response(file)
-		response.headers.set('Content-Type', 'image/*')
+		response.headers.set('Content-Type', 'image/' + ending)
 #		response.headers.set('Content-Disposition', 'attachment', filename='%s.png' + args['filename'])
 		return response
 
